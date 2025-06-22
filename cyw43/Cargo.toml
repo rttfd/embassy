@@ -46,3 +46,6 @@ features = ["defmt", "firmware-logs"]
 
 [package.metadata.docs.rs]
 features = ["defmt", "firmware-logs"]
+
+[patch.crates-io]
+bt-hci = { version = "0.3.3", git = "https://github.com/rttfd/bt-hci.git", branch = "renik" }
