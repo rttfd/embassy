@@ -10,7 +10,7 @@ use embassy_sync::waitqueue::AtomicWaker;
 
 use crate::pac::gpio::vals::*;
 use crate::pac::gpio::{self};
-#[cfg(all(feature = "rt", any(mspm0c110x, mspm0l110x)))]
+#[cfg(all(feature = "rt", any(mspm0c110x, mspm0c1105_c1106, mspm0l110x)))]
 use crate::pac::interrupt;
 use crate::pac::{self};
 
@@ -1090,7 +1090,9 @@ pub(crate) fn init(gpio: gpio::Gpio) {
 
 #[cfg(feature = "rt")]
 fn irq_handler(gpio: gpio::Gpio, wakers: &[AtomicWaker; 32]) {
+    use crate::BitIter;
     // Only consider pins which have interrupts unmasked.
+
     let bits = gpio.cpu_int().mis().read().0;
 
     for i in BitIter(bits) {
@@ -1103,43 +1105,33 @@ fn irq_handler(gpio: gpio::Gpio, wakers: &[AtomicWaker; 32]) {
     }
 }
 
-struct BitIter(u32);
-
-impl Iterator for BitIter {
-    type Item = u32;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.0.trailing_zeros() {
-            32 => None,
-            b => {
-                self.0 &= !(1 << b);
-                Some(b)
-            }
-        }
-    }
-}
-
 // C110x and L110x have a dedicated interrupts just for GPIOA.
 //
 // These chips do not have a GROUP1 interrupt.
-#[cfg(all(feature = "rt", any(mspm0c110x, mspm0l110x)))]
+#[cfg(all(feature = "rt", any(mspm0c110x, mspm0c1105_c1106, mspm0l110x)))]
 #[interrupt]
 fn GPIOA() {
     irq_handler(pac::GPIOA, &PORTA_WAKERS);
+}
+
+#[cfg(all(feature = "rt", mspm0c1105_c1106))]
+#[interrupt]
+fn GPIOB() {
+    irq_handler(pac::GPIOB, &PORTB_WAKERS);
 }
 
 // These symbols are weakly defined as DefaultHandler and are called by the interrupt group implementation.
 //
 // Defining these as no_mangle is required so that the linker will pick these over the default handler.
 
-#[cfg(all(feature = "rt", not(any(mspm0c110x, mspm0l110x))))]
+#[cfg(all(feature = "rt", not(any(mspm0c110x, mspm0c1105_c1106, mspm0l110x))))]
 #[no_mangle]
 #[allow(non_snake_case)]
 fn GPIOA() {
     irq_handler(pac::GPIOA, &PORTA_WAKERS);
 }
 
-#[cfg(all(feature = "rt", gpio_pb))]
+#[cfg(all(feature = "rt", gpio_pb, not(mspm0c1105_c1106)))]
 #[no_mangle]
 #[allow(non_snake_case)]
 fn GPIOB() {
